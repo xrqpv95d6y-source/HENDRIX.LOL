@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>HENDRIXLOL.TYPING | V15 ELITE</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #323437; --main: #e2b714; --sub: #646669; --text: #d1d0c5; --err: #ca4754;
+            --font: 'Courier New', monospace;
+        }
+        body.theme-blue { --bg: #001219; --main: #00aaff; --sub: #005f73; --text: #94d2bd; }
+        body.theme-purple { --bg: #1a1a2e; --main: #bb86fc; --sub: #4834d4; --text: #e0e0e0; }
+
+        body {
+            background: var(--bg); color: var(--text); font-family: var(--font);
+            margin: 0; padding: 0; overflow: hidden; height: 100vh; width: 100vw;
+            transition: background 0.3s; display: flex; justify-content: center; align-items: center;
+        }
+
+        #wifi-alert { 
+            position: fixed; top: 0; left: 0; width: 100%; background: var(--err); 
+            color: white; text-align: center; padding: 5px; font-weight: bold; 
+            display: none; z-index: 5000; font-size: 0.8rem;
+        }
+
+        #top-bar { position: fixed; top: 30px; width: 100%; padding: 0 50px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; z-index: 1000; }
+        #user-hud { color: var(--main); font-weight: bold; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+        #user-hud img { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--main); object-fit: cover; }
+        .v-badge { color: #00aaff; margin-left: 4px; font-size: 1rem; }
+
+        #leaderboard-side {
+            position: fixed; left: 25px; top: 50%; transform: translateY(-50%);
+            width: 260px; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 8px;
+            border: 1px solid var(--sub); max-height: 60vh; transition: all 0.4s ease;
+        }
+        .lb-hidden { opacity: 0; transform: translateY(-50%) translateX(-300px); }
+        .lb-entry { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 8px; border-bottom: 1px solid #222; padding-bottom: 4px; }
+        .lb-entry img { width: 18px; height: 18px; border-radius: 50%; margin-right: 5px; }
+
+        #center-stage { display: flex; flex-direction: column; align-items: center; width: 1000px; z-index: 200; }
+        #header-title { font-size: 4rem; font-weight: bold; color: var(--main); margin-bottom: 20px; }
+
+        .menu-row { display: flex; gap: 10px; margin-bottom: 15px; }
+        .menu-btn { background: none; border: 2px solid var(--sub); color: var(--sub); padding: 8px 18px; cursor: pointer; font-family: inherit; border-radius: 4px; font-weight: bold; transition: 0.2s; }
+        .menu-btn:hover, .menu-btn.active { border-color: var(--main); color: var(--main); }
+        .hc-btn.active { border-color: var(--err); color: var(--err); box-shadow: 0 0 10px var(--err); }
+
+        #game-area { display: none; width: 100%; }
+        #word-mask { height: 140px; overflow: hidden; position: relative; width: 100%; }
+        #words { font-size: 2.5rem; line-height: 4.5rem; display: flex; flex-wrap: wrap; color: var(--sub); position: relative; top: 0; transition: top 0.2s; justify-content: center; }
+        .word { margin: 0 15px; white-space: nowrap; }
+        .letter.correct { color: var(--text); }
+        .letter.incorrect { color: var(--err); }
+        #caret { width: 3px; height: 2.8rem; background: var(--main); position: absolute; z-index: 11; transition: left 0.1s, top 0.1s; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1e1e1e; padding: 30px; border: 2px solid var(--main); z-index: 2000; width: 420px; border-radius: 10px; box-shadow: 0 0 50px #000; }
+        input, select { background: #333; border: 1px solid var(--sub); color: white; padding: 10px; margin: 8px 0; width: 92%; font-family: inherit; }
+        
+        #hidden-input { position: absolute; opacity: 0; pointer-events: none; }
+        #footer { position: fixed; bottom: 30px; width: 100%; text-align: center; color: var(--sub); font-size: 0.85rem; }
+    </style>
+</head>
+<body class="theme-gold">
+
+    <div id="wifi-alert">CONNECTION LOST - SCORES WILL NOT SAVE</div>
+
+    <div id="top-bar">
+        <div style="cursor:pointer; color:var(--sub)" onclick="toggleModal('settings-modal')">⚙ settings</div>
+        <div id="user-hud" onclick="toggleModal('settings-modal')">guest</div>
+    </div>
+
+    <div id="leaderboard-side">
+        <h3 style="color:var(--main); margin:10px; font-size:1rem;">Global Top 10</h3>
+        <div id="lb-content" style="padding: 10px;"></div>
+    </div>
+
+    <div id="center-stage">
+        <div id="header-title">HENDRIXLOL.TYPING</div>
+        <div id="menu">
+            <div class="menu-row">
+                <button class="menu-btn active" onclick="setDiff('easy', this)">easy</button>
+                <button class="menu-btn" onclick="setDiff('medium', this)">medium</button>
+                <button class="menu-btn" onclick="setDiff('hard', this)">hard</button>
+            </div>
+            <div class="menu-row">
+                <button class="menu-btn active" onclick="setTime(30, this)">30s</button>
+                <button class="menu-btn" onclick="setTime(60, this)">60s</button>
+                <button class="menu-btn" onclick="setTime('zen', this)">zen</button>
+                <button class="menu-btn hc-btn" id="hc-toggle" onclick="toggleHardcore()">hardcore: off</button>
+            </div>
+            <button class="menu-btn" style="border-color:var(--main); color:var(--main); width: 100%; font-size: 1.5rem;" onclick="startGame()">START TEST</button>
+            <button class="menu-btn" style="border-color:#f00; color:#f00; width: 100%; margin-top:10px;" onclick="window.open('https://www.youtube.com/@9lee29')">YOUTUBE CHANNEL</button>
+            <button class="menu-btn" style="border-color:#5865F2; color:#5865F2; width: 100%; margin-top:10px;" onclick="window.open('https://discord.gg/PUdEe4daB8')">JOIN DISCORD</button>
+        </div>
+
+        <div id="game-area">
+            <div style="color:var(--main); font-size: 2.5rem; margin-bottom: 20px; text-align: center;">
+                <span id="timer">30</span> | <span id="live-wpm">0</span> wpm
+            </div>
+            <div id="word-mask"><div id="words"></div></div>
+            <input type="text" id="hidden-input" autocomplete="off" spellcheck="false">
+            <div style="text-align: center; color: var(--sub); margin-top: 20px; font-size: 0.8rem;">Press ESC to exit Zen Mode</div>
+        </div>
+
+        <div id="results" style="display:none; width: 100%; text-align: center;">
+            <h2 id="res-msg" style="color:var(--main); font-size: 3rem; margin:0;">WPM: <span id="final-wpm">0</span></h2>
+            <div style="height:350px; width:100%;"><canvas id="wpmChart"></canvas></div>
+            <button class="menu-btn" onclick="location.reload()" style="margin-top:20px; padding: 15px 50px;">RESTART</button>
+        </div>
+    </div>
+
+    <div id="settings-modal" class="modal">
+        <h3 style="color:var(--main); margin-top:0;">Settings</h3>
+        <input type="text" id="reg-name" placeholder="Username">
+        <input type="text" id="reg-pfp" placeholder="PFP URL">
+        <div id="pass-box" style="display:none"><input type="password" id="reg-pass" placeholder="Admin Key"></div>
+        <button class="menu-btn" style="width:100%; margin-top:10px;" onclick="submitAccount()">Save Profile</button>
+        <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
+        <label>Theme</label>
+        <select onchange="setTheme(this.value)"><option value="gold">Gold</option><option value="blue">Blue</option><option value="purple">Purple</option></select>
+        <label>Font</label>
+        <select onchange="document.body.style.fontFamily = this.value"><option value="'Courier New'">Courier</option><option value="Arial">Arial</option></select>
+        <button class="menu-btn" style="width:100%; border-color:var(--err); margin-top:10px;" onclick="toggleModal('admin-panel')">ADMIN TOOLS</button>
+        <button class="menu-btn" style="width:100%; margin-top:5px;" onclick="toggleModal('settings-modal')">Close</button>
+    </div>
+
+    <div id="admin-panel" class="modal">
+        <h3 style="color:var(--err)">ADMIN CONTROL</h3>
+        <input type="password" id="admin-key" placeholder="Developer Password">
+        <div id="admin-tools" style="display:none">
+            <input type="file" id="update-file">
+            <button class="menu-btn" style="width:100%; border-color:#0f0" onclick="alert('Update Pushed!')">GLOBAL UPDATE</button>
+            <input type="text" id="ban-user" placeholder="Username">
+            <button class="menu-btn" style="width:100%; border-color:var(--err)" onclick="alert('User Banned')">BAN USER</button>
+        </div>
+        <button id="unlock-adm" class="menu-btn" style="width:100%; margin-top:10px;" onclick="checkAdmin()">Unlock</button>
+        <button class="menu-btn" style="width:100%; margin-top:5px;" onclick="toggleModal('admin-panel')">Close Admin</button>
+    </div>
+
+    <div id="footer">hendrix v15 | discord & zen fixes</div>
+
+    <script>
+        const reserved = ["HendrixOfficial", "cacv420"];
+        let currentDiff='easy', selectedTime=30, timerStarted=false, interval, isHardcore=false;
+        let correctChars=0, currentW=0, currentL=0, wpmHistory=[], startTime;
+        let currentUser = JSON.parse(localStorage.getItem('h_user_v15')) || null;
+
+        window.addEventListener('offline', () => document.getElementById('wifi-alert').style.display = 'block');
+        window.addEventListener('online', () => document.getElementById('wifi-alert').style.display = 'none');
+
+        window.addEventListener('keydown', (e) => {
+            if(e.key === "Escape" && timerStarted) endTask();
+        });
+
+        function init() {
+            if(currentUser) updateHUD();
+            updateLB();
+            document.getElementById('reg-name').oninput = (e) => { 
+                document.getElementById('pass-box').style.display = reserved.includes(e.target.value) ? 'block' : 'none';
+            };
+        }
+
+        function toggleModal(id) { const m = document.getElementById(id); m.style.display = (m.style.display==='block')?'none':'block'; }
+        function setTheme(t) { document.body.className = (t==='gold') ? '' : 'theme-'+t; }
+        function checkAdmin() { if(document.getElementById('admin-key').value==='HX-929-SECURE-ALPHA-01'){document.getElementById('admin-tools').style.display='block';document.getElementById('unlock-adm').style.display='none';}}
+
+        function submitAccount() {
+            const name = document.getElementById('reg-name').value.trim();
+            const pass = document.getElementById('reg-pass').value;
+            if(reserved.includes(name) && pass !== '6767') { alert("Invalid Key"); return; }
+            localStorage.setItem('h_user_v15', JSON.stringify({name, pfp: document.getElementById('reg-pfp').value}));
+            location.reload();
+        }
+
+        function updateHUD() {
+            const glow = reserved.includes(currentUser.name) ? 'gold-glow' : '';
+            const check = reserved.includes(currentUser.name) ? '<span class="v-badge">☑</span>' : '';
+            document.getElementById('user-hud').innerHTML = `<img src="${currentUser.pfp || 'https://via.placeholder.com/30'}"> <span class="${glow}">${currentUser.name}</span>${check}`;
+        }
+
+        function toggleHardcore() { isHardcore = !isHardcore; let b = document.getElementById('hc-toggle'); b.innerText = "hardcore: " + (isHardcore ? "on" : "off"); b.classList.toggle('active'); }
+        function setTime(t, b) { selectedTime = t; b.parentElement.querySelectorAll('button').forEach(btn => btn.classList.remove('active')); b.classList.add('active'); }
+
+        function startGame() {
+            document.getElementById('menu').style.display='none'; document.getElementById('game-area').style.display='block';
+            document.getElementById('leaderboard-side').classList.add('lb-hidden');
+            renderWords();
+            document.getElementById('hidden-input').focus();
+        }
+
+        function renderWords() {
+            const container = document.getElementById('words'); container.innerHTML = '<div id="caret"></div>';
+            const bank = "the and for are but not you all any can had her was one our out day get has him his how man new now old see she".split(" ");
+            for(let i=0; i<400; i++) {
+                let div = document.createElement('div'); div.className = 'word';
+                bank[Math.floor(Math.random()*bank.length)].split('').forEach(l => {
+                    let s = document.createElement('span'); s.className='letter'; s.innerText=l;
+                    div.appendChild(s);
+                });
+                container.appendChild(div);
+            }
+            updateCaret();
+        }
+
+        function updateCaret() {
+            const words = document.querySelectorAll('.word');
+            const letters = words[currentW].querySelectorAll('.letter');
+            const caret = document.getElementById('caret');
+            const mask = document.getElementById('word-mask').getBoundingClientRect();
+            let rect = (currentL < letters.length) ? letters[currentL].getBoundingClientRect() : words[currentW].getBoundingClientRect();
+            
+            caret.style.left = (currentL < letters.length ? rect.left - mask.left : rect.right - mask.left) + 'px';
+            caret.style.top = (rect.top - mask.top) + 'px';
+            
+            if (rect.top - mask.top > 70) {
+                const wordsBox = document.getElementById('words');
+                wordsBox.style.top = (parseInt(wordsBox.style.top || 0) - 72) + 'px';
+            }
+        }
+
+        document.getElementById('hidden-input').oninput = (e) => {
+            if(!timerStarted) { timerStarted=true; startTime=Date.now(); interval=setInterval(tick, 1000); }
+            const val = e.target.value; const letters = document.querySelectorAll('.word')[currentW].querySelectorAll('.letter');
+            if(val.endsWith(' ')) { currentW++; currentL=0; e.target.value=''; }
+            else {
+                currentL = val.length;
+                if(letters[currentL-1]) {
+                    if(val[currentL-1] === letters[currentL-1].innerText) { letters[currentL-1].className='letter correct'; correctChars++; }
+                    else { letters[currentL-1].className='letter incorrect'; }
+                }
+            }
+            updateCaret();
+        };
+
+        function tick() {
+            let elapsed = (Date.now() - startTime) / 1000;
+            if(selectedTime !== 'zen') {
+                let tl = Math.max(0, selectedTime - Math.floor(elapsed));
+                document.getElementById('timer').innerText = tl;
+                if(tl <= 0) endTask();
+            } else { document.getElementById('timer').innerText = "ZEN"; }
+            let wpm = Math.round((correctChars/5)/(elapsed/60)) || 0;
+            document.getElementById('live-wpm').innerText = wpm; wpmHistory.push(wpm);
+        }
+
+        function endTask() {
+            clearInterval(interval); document.getElementById('game-area').style.display='none';
+            document.getElementById('results').style.display='block';
+            document.getElementById('leaderboard-side').classList.remove('lb-hidden');
+            const wpm = parseInt(document.getElementById('live-wpm').innerText);
+            document.getElementById('final-wpm').innerText = wpm;
+            saveScore(currentUser?.name || "Guest", wpm, currentUser?.pfp);
+            new Chart(document.getElementById('wpmChart'), { type: 'line', data: { labels: wpmHistory.map((_,i)=>i), datasets: [{label:'WPM', data:wpmHistory, borderColor:'#e2b714', fill:true, backgroundColor:'rgba(226,183,20,0.1)'}] }, options: { maintainAspectRatio: false } });
+        }
+
+        function saveScore(name, wpm, pfp) {
+            let lb = JSON.parse(localStorage.getItem('h_lb_v15') || "[]");
+            lb.push({name, wpm, pfp}); lb.sort((a,b) => b.wpm - a.wpm);
+            localStorage.setItem('h_lb_v15', JSON.stringify(lb.slice(0,10))); updateLB();
+        }
+
+        function updateLB() {
+            const lb = JSON.parse(localStorage.getItem('h_lb_v15') || "[]");
+            document.getElementById('lb-content').innerHTML = lb.map(i => {
+                const glow = reserved.includes(i.name) ? 'gold-glow' : '';
+                return `<div class="lb-entry"><span><img src="${i.pfp || 'https://via.placeholder.com/30'}"> <span class="${glow}">${i.name}</span></span><b>${i.wpm}</b></div>`;
+            }).join('');
+        }
+
+        init();
+    </script>
+</body>
+</html>
